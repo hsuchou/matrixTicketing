@@ -6,16 +6,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Test {
     private final static int _THREAD_MAX = 128;
-    private final static int TEST_NUM = 10000;
+    private final static int TEST_NUM = 1000000;
 
     private final static int refund = 10;
     private final static int buy = 40;
     private final static int query = 100;
 
-    private final static int ROUTE_NUM = 10;
-    private final static int COACH_NUM = 10;
+    private final static int ROUTE_NUM = 50;
+    private final static int COACH_NUM = 20;
     private final static int SEAT_NUM = 100;
-    private final static int STATION_NUM = 20;
+    private final static int STATION_NUM = 30; 
 
     private final static long[] buyTicketTime = new long[_THREAD_MAX];
     private final static long[] refundTime = new long[_THREAD_MAX];
@@ -28,9 +28,8 @@ public class Test {
     private final static AtomicInteger threadId = new AtomicInteger(0);
 
     public static void main(String[] args) throws InterruptedException {
-        final int[] threadNums = { 64 }; // 4, 8, 16, 32, 64
-        int p;
-        for (p = 0; p < threadNums.length; ++p) {
+        final int[] threadNums = { 4, 8, 16, 32, 64 }; // 4, 8, 16, 32, 64
+        for (int p = 0; p < threadNums.length; ++p) {
             final TicketingDS tds = new TicketingDS(ROUTE_NUM, COACH_NUM, SEAT_NUM, STATION_NUM, threadNums[p]);
             Thread[] threads = new Thread[threadNums[p]];
             for (int i = 0; i < threadNums[p]; i++) {

@@ -35,7 +35,7 @@ public class TicketingDS implements TicketingSystem {
             routeObject[i] = new mRoute(i + 1, routeNum, coachNum, seatNum, stationNum, threadNum);
         }
 
-        int MAX_TID = threadNum * 120000;
+        int MAX_TID = routeNum * 150000;
         ticketsMap = new AtomicIntegerArray(MAX_TID);
         ticketsPassengers = new String[MAX_TID];
         for (int i = 0; i < MAX_TID; i++) {

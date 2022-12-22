@@ -25,24 +25,19 @@ public class TicketingDS implements TicketingSystem {
      * @param threadNum  线程数量
      */
     TicketingDS(int routeNum, int coachNum, int seatNum, int stationNum, int threadNum) {
-        this.seatNum = seatNum;
         if (stationNum > Integer.SIZE) {
             throw new IllegalArgumentException();
         }
+        this.seatNum = seatNum;
 
         routeObject = new mRoute[routeNum];
         for (int i = 0; i < routeNum; i++) {
-            routeObject[i] = new mRoute(i + 1, routeNum, coachNum, seatNum, stationNum, threadNum);
+            routeObject[i] = new mRoute(i + 1, routeNum, coachNum, seatNum, coachNum * seatNum, stationNum, threadNum);
         }
 
         int MAX_TID = threadNum * 102000 + routeNum * 30300;
         ticketsMap = new AtomicIntegerArray(MAX_TID);
         ticketsPassengers = new String[MAX_TID];
-        for (int i = 0; i < MAX_TID; i++) {
-            ticketsPassengers[i] = null;
-            ticketsMap.set(i, _INT_MAX);
-        }
-
     }
 
     /**
@@ -78,13 +73,14 @@ public class TicketingDS implements TicketingSystem {
     public boolean refundTicket(Ticket ticket) {
         int tid = (int) ticket.tid;
 
-        if (ticketsPassengers[tid] == null
-                || !ticket.passenger.equals(ticketsPassengers[tid])
-                || !ticketsMap.compareAndSet(tid, getHash(ticket), _INT_MAX)) {
-            return false;
+        if (ticketsPassengers[tid] != null
+                && ticket.passenger.equals(ticketsPassengers[tid])
+                && ticketsMap.compareAndSet(tid, getHash(ticket), _INT_MAX)) {
+            return routeObject[ticket.route - 1].refundTicket(ticket);
         }
 
-        return routeObject[ticket.route - 1].refundTicket(ticket);
+        // surely failed to refund
+        return false;
     }
 
     public boolean buyTicketReplay(Ticket ticket) {

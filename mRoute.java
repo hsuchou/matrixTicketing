@@ -34,11 +34,12 @@ public class mRoute {
      * @param routeNum   线路数量
      * @param coachNum   车厢数量
      * @param seatNum    座位数量
+     * @param routeSize  车次容量
      * @param stationNum 车站数量
      * @param threadNum  线程数量
      */
     mRoute(int routeIndex, int routeNum,
-            int coachNum, int seatNum, int stationNum, int threadNum) {
+            int coachNum, int seatNum, int routeSize, int stationNum, int threadNum) {
 
         rwLock = new mReadWriteLock(threadNum);
         readLock = rwLock.readLock();
@@ -49,13 +50,10 @@ public class mRoute {
         this.coachNum = coachNum;
         this.seatNum = seatNum;
         this.stationNum = stationNum;
-        this.routeSize = coachNum * seatNum;
+        this.routeSize = routeSize;
 
         globalRouteTid = new AtomicLong(routeIndex);
         routeRecord = new AtomicIntegerArray(routeSize);
-        for (int i = 0; i < routeSize; i++) { // 0 = available
-            routeRecord.set(i, 0);
-        }
     }
 
     /**
@@ -72,10 +70,11 @@ public class mRoute {
 
         // pick random index to scan in order to avoid competition
         Random rand = new Random();
-        int end = rand.nextInt(routeSize);
-        int seatTag = end;
-        do {
+
+        for (int fakeSeatTag = rand.nextInt(routeSize),
+                end = fakeSeatTag + routeSize; fakeSeatTag != end; fakeSeatTag++) {
             while (true) {
+                int seatTag = fakeSeatTag % routeSize;
                 int seatRecord = routeRecord.get(seatTag);
                 if ((seatRecord & tourCover) != 0) {
                     // seat is already occupied
@@ -89,10 +88,7 @@ public class mRoute {
                     return t;
                 }
             }
-            seatTag++;
-            if (seatTag == routeSize)
-                seatTag = 0;
-        } while (seatTag != end);
+        }
 
         // fail to buy any ticket
         writeLock.unlock();
@@ -111,11 +107,9 @@ public class mRoute {
         int tourCover = getTourCoverInBit(departure, arrival);
 
         // count available seats
-        int count = 0;
-        for (int i = 0; i < routeSize; i++) {
-            int seatRecord = routeRecord.get(i);
-            if ((seatRecord & tourCover) == 0)
-                count++;
+        int count = 0, index = routeSize;
+        while (index-- > 0) {
+            count += (routeRecord.get(index) & tourCover) == 0 ? 1 : 0;
         }
         readLock.unlock();
         return count;
@@ -140,14 +134,6 @@ public class mRoute {
                 return true;
             }
         }
-    }
-
-    public boolean buyTicketReplay(Ticket ticket) {
-        return false;
-    }
-
-    public boolean refundTicketReplay(Ticket ticket) {
-        return false;
     }
 
     /**

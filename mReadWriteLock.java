@@ -1,29 +1,16 @@
 package ticketingsystem;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantLock;
 
 class mReadWriteLock implements ReadWriteLock {
-    private int readers;
-    private int writers;
-    private int threshold;
-    private int waitingReaders;
-    private int waitingWriters;
-    Lock lock;
-    Condition condition;
-    Lock readLock, writeLock;
+    private AtomicInteger counter = new AtomicInteger(0);
+    Lock readLock = new ReadLock(), writeLock = new WriteLock();
 
     public mReadWriteLock(int threadNum) {
-        readers = 0;
-        writers = 0;
-        threshold = threadNum / 2;
-        lock = new ReentrantLock();
-        readLock = new ReadLock();
-        writeLock = new WriteLock();
-        condition = lock.newCondition();
     }
 
     public Lock readLock() {
@@ -36,31 +23,18 @@ class mReadWriteLock implements ReadWriteLock {
 
     class ReadLock implements Lock {
         public void lock() {
-            lock.lock();
-            try {
-                while (writers > 0 || waitingWriters >= threshold) {
-                    waitingReaders++;
-                    condition.await();
+            while (true) {
+                int res = counter.get();
+                if (res >= 0) {
+                    if (counter.compareAndSet(res, res + 1)) {
+                        break;
+                    }
                 }
-                waitingReaders--;
-                readers++;
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } finally {
-                lock.unlock();
             }
         }
 
         public void unlock() {
-            lock.lock();
-            try {
-                readers--;
-                if (readers == 0) {
-                    condition.signalAll();
-                }
-            } finally {
-                lock.unlock();
-            }
+            counter.getAndDecrement();
         }
 
         @Override
@@ -90,30 +64,18 @@ class mReadWriteLock implements ReadWriteLock {
 
     class WriteLock implements Lock {
         public void lock() {
-            lock.lock();
-            try {
-                while (readers > 0 || waitingReaders >= threshold) {
-                    waitingWriters++;
-                    condition.await();
+            while (true) {
+                int res = counter.get();
+                if (res <= 0) {
+                    if (counter.compareAndSet(res, res - 1)) {
+                        break;
+                    }
                 }
-                waitingWriters--;
-                writers++;
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } finally {
-                lock.unlock();
             }
         }
 
         public void unlock() {
-            lock.lock();
-            try {
-                writers--;
-                if (writers == 0)
-                    condition.signalAll();
-            } finally {
-                lock.unlock();
-            }
+            counter.getAndIncrement();
         }
 
         @Override

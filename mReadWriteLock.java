@@ -9,17 +9,16 @@ import java.util.concurrent.locks.ReentrantLock;
 class mReadWriteLock implements ReadWriteLock {
     private int readers;
     private int writers;
-    private int threshold;
+    private int threshold = 16;
     private int waitingReaders;
     private int waitingWriters;
     Lock lock;
     Condition condition;
     Lock readLock, writeLock;
 
-    public mReadWriteLock(int threadNum) {
+    public mReadWriteLock() {
         readers = 0;
         writers = 0;
-        threshold = threadNum / 2;
         lock = new ReentrantLock();
         readLock = new ReadLock();
         writeLock = new WriteLock();
@@ -32,6 +31,10 @@ class mReadWriteLock implements ReadWriteLock {
 
     public Lock writeLock() {
         return writeLock;
+    }
+
+    public void setThreshold(int threshold) {
+        this.threshold = threshold;
     }
 
     class ReadLock implements Lock {

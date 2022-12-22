@@ -8,9 +8,9 @@ import java.util.concurrent.locks.Lock;
 public class mRoute {
 
     // rwlock
-    final mReadWriteLock rwLock;
-    final Lock readLock;
-    final Lock writeLock;
+    final mReadWriteLock rwLock[];
+    final Lock readLock[];
+    final Lock writeLock[];
 
     // magic const
     private static final int _INT_MAX = 0xffffffff;
@@ -40,10 +40,16 @@ public class mRoute {
      */
     mRoute(int routeIndex, int routeNum,
             int coachNum, int seatNum, int routeSize, int stationNum, int threadNum) {
-
-        rwLock = new mReadWriteLock(threadNum);
-        readLock = rwLock.readLock();
-        writeLock = rwLock.writeLock();
+        
+        rwLock = new mReadWriteLock[stationNum - 1];
+        readLock = new Lock[stationNum - 1];
+        writeLock = new Lock[stationNum - 1];
+        for (int i = 0; i < stationNum - 1; i++) {
+            rwLock[i] = new mReadWriteLock();
+            rwLock[i].setThreshold(threadNum / 2);
+            readLock[i] = rwLock[i].readLock();
+            writeLock[i] = rwLock[i].writeLock();
+        }
 
         this.routeIndex = routeIndex;
         this.routeNum = routeNum;
@@ -63,7 +69,9 @@ public class mRoute {
      * @return 火车票
      */
     public Ticket buyTicket(String passenger, int departure, int arrival) {
-        writeLock.lock();
+        for (int i = departure - 1; i < arrival - 1; i++) {
+            writeLock[i].lock();
+        }
 
         // get trip info
         int tourCover = getTourCoverInBit(departure, arrival);
@@ -84,14 +92,18 @@ public class mRoute {
                 if (routeRecord.compareAndSet(seatTag, seatRecord, seatRecord | tourCover)) {
                     // successfully add a ticket
                     Ticket t = getTicket(passenger, seatTag, departure, arrival);
-                    writeLock.unlock();
+                    for (int i = departure - 1; i < arrival - 1; i++) {
+                        writeLock[i].unlock();
+                    }
                     return t;
                 }
             }
         }
 
         // fail to buy any ticket
-        writeLock.unlock();
+        for (int i = departure - 1; i < arrival - 1; i++) {
+            writeLock[i].unlock();
+        }
         return null;
     }
 
@@ -101,7 +113,9 @@ public class mRoute {
      * @return 有票数量
      */
     public int inquiry(int departure, int arrival) {
-        readLock.lock();
+        for (int i = departure - 1; i < arrival - 1; i++) {
+            readLock[i].lock();
+        }
 
         // get trip info
         int tourCover = getTourCoverInBit(departure, arrival);
@@ -111,7 +125,9 @@ public class mRoute {
         while (index-- > 0) {
             count += (routeRecord.get(index) & tourCover) == 0 ? 1 : 0;
         }
-        readLock.unlock();
+        for (int i = departure - 1; i < arrival - 1; i++) {
+            readLock[i].unlock();
+        }
         return count;
     }
 
@@ -120,7 +136,9 @@ public class mRoute {
      * @return 退票状态
      */
     public boolean refundTicket(Ticket ticket) {
-        writeLock.lock();
+        for (int i = ticket.departure - 1; i < ticket.arrival - 1; i++) {
+            writeLock[i].lock();
+        }
 
         // get seat info
         int seatTag = (ticket.coach - 1) * seatNum + ticket.seat - 1;
@@ -130,7 +148,9 @@ public class mRoute {
             if (routeRecord.compareAndSet(seatTag, seatRecord,
                     seatRecord ^ getTourCoverInBit(ticket.departure, ticket.arrival))) {
                 // successfully refund the ticket
-                writeLock.unlock();
+                for (int i = ticket.departure - 1; i < ticket.arrival - 1; i++) {
+                    writeLock[i].unlock();
+                }
                 return true;
             }
         }
